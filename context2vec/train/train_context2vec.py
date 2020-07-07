@@ -5,6 +5,7 @@ Learns context2vec's parametric model
 import argparse
 import time
 import sys
+import os
 
 import numpy as np
 from chainer import cuda
@@ -97,6 +98,27 @@ def parse_arguments():
        
     return args 
     
+def savePartialModel(epoch):
+    print("saving partial epoch :- ", epoch)
+    if not os.path.exists(epoch):
+        os.makedirs(epoch)
+
+    if args.wordsfile != None:
+        dump_embeddings(str(epoch) + r'\\' + args.wordsfile + '.targets', model.loss_func.W.data, target_word_units, reader.index2word)
+
+    if args.modelfile != None:
+        S.save_npz(str(epoch) + r'\\' + args.modelfile, model)
+
+    with open(str(epoch) + r'\\' + args.modelfile + '.params', 'w', encoding='utf-8') as f:
+        f.write('model_file\t' + args.modelfile[args.modelfile.rfind('/') + 1:] + '\n')
+        f.write('words_file\t' + args.wordsfile[args.wordsfile.rfind('/') + 1:] + '.targets\n')
+        f.write('unit\t' + str(args.unit) + '\n')
+        if args.deep:
+            f.write('deep\tyes\n')
+        else:
+            f.write('deep\tno\n')
+        f.write('drop_ratio\t' + str(args.dropout) + '\n')
+        f.write('#\t{}\n'.format(' '.join(sys.argv)))
 
 
 args = parse_arguments()
@@ -106,8 +128,10 @@ lstm_hidden_units = IN_TO_OUT_UNITS_RATIO*args.unit
 target_word_units = IN_TO_OUT_UNITS_RATIO*args.unit
 
 if args.gpu >= 0:
-    cuda.check_cuda_available()
-    cuda.get_device(args.gpu).use()
+    print("GPU")
+    print(cuda.available)
+    print(cuda.get_device_from_id(args.gpu))
+
 xp = cuda.cupy if args.gpu >= 0 else np
     
 reader = SentenceReaderDir(args.indir, args.trimfreq, args.batchsize)
@@ -167,8 +191,10 @@ for epoch in range(args.epoch):
 
     print('accum words per epoch', word_count, 'accum_loss', accum_loss, 'accum_loss/word', accum_mean_loss)
     reader.close()
-    
-if args.wordsfile != None:        
+    savePartialModel(str(epoch))
+
+"""
+if args.wordsfile != None:
     dump_embeddings(args.wordsfile+'.targets', model.loss_func.W.data, target_word_units, reader.index2word)
 
 if args.modelfile != None:
@@ -184,6 +210,6 @@ with open(args.modelfile + '.params', 'w') as f:
         f.write('deep\tno\n')
     f.write('drop_ratio\t' + str(args.dropout)+'\n')    
     f.write('#\t{}\n'.format(' '.join(sys.argv)))
-    
+"""
     
 
